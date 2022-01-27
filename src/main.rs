@@ -103,37 +103,6 @@ fn get_term() -> String {
     term
 }
 
-fn render(infos: Vec<(&str, String)>, term_size: (u16, u16)) {
-    let mut counter = (term_size.1 as f32 / 3.5) as u16;
-    // let mut counter = term_size.1 - (infos.len() * 2) as u16;
-    print!("{}", clear::All);
-    for info in infos {
-        println!(
-            "{}{}{}{} ->{} {}",
-            cursor::Goto((term_size.0 as f32 / 1.9) as u16, counter),
-            style::Bold,
-            color::Fg(color::Magenta),
-            info.0,
-            color::Fg(color::White),
-            info.1
-        );
-        counter = counter + 1;
-    }
-
-    println!(
-        "{}{}███{}███{}███{}███{}███{}███{}███{}███",
-        cursor::Goto((term_size.0 as f32 / 1.9) as u16, counter + 1),
-        color::Fg(color::Red),
-        color::Fg(color::Yellow),
-        color::Fg(color::Green),
-        color::Fg(color::Cyan),
-        color::Fg(color::Blue),
-        color::Fg(color::Magenta),
-        color::Fg(color::Black),
-        color::Fg(color::White),
-    );
-}
-
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Help {
@@ -185,6 +154,61 @@ fn render_image(path: &Path) {
     };
 
     viuer::print(&img_resized, &conf).expect("Image printing failed.");
+}
+
+fn render(infos: Vec<((&str, &str), String)>, term_size: (u16, u16), icons: bool) {
+    let mut counter = (term_size.1 as f32 / 3.5) as u16;
+    // let mut counter = term_size.1 - (infos.len() * 2) as u16;
+    print!("{}", clear::All);
+
+    if icons {
+        for info in infos {
+            println!(
+                "{}{}{}{} ->{} {}",
+                cursor::Goto((term_size.0 as f32 / 1.9) as u16, counter),
+                style::Bold,
+                color::Fg(color::Magenta),
+                info.0 .0,
+                color::Fg(color::White),
+                info.1
+            );
+            counter = counter + 1;
+        }
+    } else {
+        let mut string_lengths: Vec<usize> = Vec::new();
+        for v in infos.clone() {
+            string_lengths.push(v.0 .1.chars().count())
+        }
+
+        let padding = string_lengths.iter().max().unwrap();
+        for info in infos {
+            let pad = String::from_utf8(vec![b' '; padding - info.0 .1.chars().count()]).unwrap();
+            println!(
+                "{}{}{}{}{} ->{} {}",
+                cursor::Goto((term_size.0 as f32 / 1.9) as u16, counter),
+                style::Bold,
+                color::Fg(color::Magenta),
+                info.0 .1,
+                pad,
+                color::Fg(color::White),
+                info.1
+            );
+            counter = counter + 1;
+        }
+    }
+
+    println!(
+        "{}{}███{}███{}███{}███{}███{}███{}███{}███",
+        cursor::Goto((term_size.0 as f32 / 1.9) as u16, counter + 1),
+        color::Fg(color::Red),
+        color::Fg(color::Yellow),
+        color::Fg(color::Green),
+        color::Fg(color::Cyan),
+        color::Fg(color::Blue),
+        color::Fg(color::Magenta),
+        color::Fg(color::Black),
+        color::Fg(color::White),
+    );
 }
 
 fn render_ascii() {
@@ -239,16 +263,18 @@ fn main() {
 
     let term_size = termion::terminal_size().unwrap();
 
-    let mut infos: Vec<(&str, String)> = Vec::new();
+    let mut infos: Vec<((&str, &str), String)> = Vec::new();
 
-    infos.push(("\u{f17c}", distro));
-    infos.push(("\u{e266}", kernel));
-    infos.push(("\u{f017}", uptime));
-    infos.push(("\u{e795}", shell));
-    infos.push(("\u{f878}", wm));
-    infos.push(("\u{f44f}", term));
+    infos.push((("\u{f17c}", "OS"), distro));
+    infos.push((("\u{e266}", "Kernel"), kernel));
+    infos.push((("\u{f017}", "Uptime"), uptime));
+    infos.push((("\u{e795}", "Shell"), shell));
+    infos.push((("\u{f878}", "WM"), wm));
+    infos.push((("\u{f44f}", "Term"), term));
 
-    render(infos, term_size);
+    let mut icons: bool = true;
+
+    render(infos, term_size, icons);
 
     if let Some(name) = help.name.as_deref() {
         println!("Value for name: {}", name);
