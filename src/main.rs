@@ -1,8 +1,12 @@
+use clap::{Parser, Subcommand};
+use image;
 use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::{self, BufRead};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use termion::{clear, color, cursor, style};
+use viuer::Config;
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 where
@@ -31,7 +35,6 @@ fn get_kernel() -> String {
     let data = fs::read_to_string("/proc/version").expect("Unable to read file");
     let i1 = data.find("version ").unwrap() + 8;
     let i2 = data.find(" (").unwrap();
-    // println!("Hello, {} {}, finally: {}", i1, i2, &data[i1..i2]);
     (&data[i1..i2]).to_string()
 }
 
@@ -100,11 +103,109 @@ fn get_term() -> String {
     term
 }
 
+fn render(infos: Vec<(&str, String)>, term_size: (u16, u16)) {
+    let mut counter = (term_size.1 as f32 / 3.5) as u16;
+    // let mut counter = term_size.1 - (infos.len() * 2) as u16;
+    print!("{}", clear::All);
+    for info in infos {
+        println!(
+            "{}{}{}{} ->{} {}",
+            cursor::Goto((term_size.0 as f32 / 1.9) as u16, counter),
+            style::Bold,
+            color::Fg(color::Magenta),
+            info.0,
+            color::Fg(color::White),
+            info.1
+        );
+        counter = counter + 1;
+    }
+
+    println!(
+        "{}{}███{}███{}███{}███{}███{}███{}███{}███",
+        cursor::Goto((term_size.0 as f32 / 1.9) as u16, counter + 1),
+        color::Fg(color::Red),
+        color::Fg(color::Yellow),
+        color::Fg(color::Green),
+        color::Fg(color::Cyan),
+        color::Fg(color::Blue),
+        color::Fg(color::Magenta),
+        color::Fg(color::Black),
+        color::Fg(color::White),
+    );
+}
+
+#[derive(Parser)]
+#[clap(author, version, about, long_about = None)]
+struct Help {
+    /// Optional name to operate on
+    name: Option<String>,
+
+    /// Sets a custom config file
+    #[clap(short, long, parse(from_os_str), value_name = "FILE")]
+    config: Option<PathBuf>,
+
+    /// Sets a custom image file
+    #[clap(short, long, parse(from_os_str), value_name = "FILE")]
+    image: Option<PathBuf>,
+
+    /// Turn debugging information on
+    #[clap(short, long, parse(from_occurrences))]
+    debug: usize,
+
+    #[clap(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// does testing things
+    Test {
+        /// lists test values
+        #[clap(short, long)]
+        list: bool,
+    },
+}
+
+fn render_image(path: &Path) {
+    let term_size_pixels = termion::terminal_size_pixels().unwrap();
+    let x_size = term_size_pixels.0 as u32 / 2;
+    let y_size = term_size_pixels.1 as f32 / 1.2;
+
+    let img = image::open(path).unwrap();
+    let img_resized = img.resize(x_size, y_size as u32, image::imageops::Lanczos3);
+
+    let conf = Config {
+        // set offset
+        x: 0,
+        y: 0,
+        // set dimensions
+        width: Some(0),
+        height: Some(0),
+        ..Default::default()
+    };
+
+    viuer::print(&img_resized, &conf).expect("Image printing failed.");
+}
+
 fn main() {
-    println!("Hello world!!");
+    let help = Help::parse();
+
+    match &help.command {
+        Some(Commands::Test { list }) => {
+            if *list {
+                println!("Printing testing lists...");
+            } else {
+                println!("Not printing testing lists...");
+            }
+        }
+        None => {}
+    }
+
+    // NOTE: To debug environment variables
     // for (key, value) in env::vars_os() {
     //     println!("{:?}: {:?}", key, value);
     // }
+
     let distro = get_distro();
     let kernel = get_kernel();
     let uptime = get_uptime();
@@ -112,10 +213,31 @@ fn main() {
     let wm = get_wm();
     let term = get_term();
 
-    println!("OS: {}", distro);
-    println!("Kernel: {}", kernel);
-    println!("Uptime: {}", uptime);
-    println!("Shell: {}", shell);
-    println!("WM: {}", wm);
-    println!("Terminal: {}", term);
+    let term_size = termion::terminal_size().unwrap();
+
+    let mut infos: Vec<(&str, String)> = Vec::new();
+
+    infos.push(("\u{f17c}", distro));
+    infos.push(("\u{e266}", kernel));
+    infos.push(("\u{f017}", uptime));
+    infos.push(("\u{e795}", shell));
+    infos.push(("\u{f878}", wm));
+    infos.push(("\u{f44f}", term));
+
+    render(infos, term_size);
+
+    if let Some(name) = help.name.as_deref() {
+        println!("Value for name: {}", name);
+    }
+
+    if let Some(config_path) = help.config.as_deref() {
+        println!("Value for config: {}", config_path.display());
+    }
+
+    // If -i/--image argument given, render image
+    if let Some(image) = help.image.as_deref() {
+        render_image(image);
+    } else {
+        // TODO: Add ASCII art
+    }
 }
