@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use image;
+use image::GenericImageView;
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -121,6 +122,10 @@ struct Help {
     #[clap(short, long, parse(from_occurrences))]
     debug: usize,
 
+    /// Set text / text
+    #[clap(short, long)]
+    text: bool,
+
     #[clap(subcommand)]
     command: Option<Commands>,
 }
@@ -135,13 +140,15 @@ enum Commands {
     },
 }
 
-fn render_image(path: &Path) {
+fn render_image(path: &Path) -> (f32, f32) {
     let term_size_pixels = termion::terminal_size_pixels().unwrap();
     let x_size = term_size_pixels.0 as u32 / 2;
     let y_size = term_size_pixels.1 as f32 / 1.2;
 
     let img = image::open(path).unwrap();
     let img_resized = img.resize(x_size, y_size as u32, image::imageops::Lanczos3);
+
+    print!("{}", clear::All);
 
     let conf = Config {
         // set offset
@@ -154,18 +161,58 @@ fn render_image(path: &Path) {
     };
 
     viuer::print(&img_resized, &conf).expect("Image printing failed.");
+    let resized_sizes = img_resized.dimensions();
+
+    (
+        term_size_pixels.0 as f32 / resized_sizes.0 as f32,
+        term_size_pixels.1 as f32 / resized_sizes.1 as f32,
+    )
 }
 
-fn render(infos: Vec<((&str, &str), String)>, term_size: (u16, u16), icons: bool) {
-    let mut counter = (term_size.1 as f32 / 3.5) as u16;
-    // let mut counter = term_size.1 - (infos.len() * 2) as u16;
-    print!("{}", clear::All);
+fn render_ascii() -> (f32, f32) {
+    println!("{}{}", clear::All, cursor::Goto(1, 1));
+    let zerotwo_art: &[&str] = &[
+        "⣿⣿⣿⣿⣯⣿⣿⠄⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠈⣿⣿⣿⣿⣿⣿⣆⠄",
+        "⢻⣿⣿⣿⣾⣿⢿⣢⣞⣿⣿⣿⣿⣷⣶⣿⣯⣟⣿⢿⡇⢃⢻⣿⣿⣿⣿⣿⢿⡄",
+        "⠄⢿⣿⣯⣏⣿⣿⣿⡟⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣧⣾⢿⣮⣿⣿⣿⣿⣾⣷",
+        "⠄⣈⣽⢾⣿⣿⣿⣟⣄⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣝⣯⢿⣿⣿⣿⣿",
+        "⣿⠟⣫⢸⣿⢿⣿⣾⣿⢿⣿⣿⢻⣿⣿⣿⢿⣿⣿⣿⢸⣿⣼⣿⣿⣿⣿⣿⣿⣿",
+        "⡟⢸⣟⢸⣿⠸⣷⣝⢻⠘⣿⣿⢸⢿⣿⣿⠄⣿⣿⣿⡆⢿⣿⣼⣿⣿⣿⣿⢹⣿",
+        "⡇⣿⡿⣿⣿⢟⠛⠛⠿⡢⢻⣿⣾⣞⣿⡏⠖⢸⣿⢣⣷⡸⣇⣿⣿⣿⢼⡿⣿⣿",
+        "⣡⢿⡷⣿⣿⣾⣿⣷⣶⣮⣄⣿⣏⣸⣻⣃⠭⠄⠛⠙⠛⠳⠋⣿⣿⣇⠙⣿⢸⣿",
+        "⠫⣿⣧⣿⣿⣿⣿⣿⣿⣿⣿⣿⠻⣿⣾⣿⣿⣿⣿⣿⣿⣿⣷⣿⣿⣹⢷⣿⡼⠋",
+        "⠄⠸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣦⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⣿⣿⣿⠄⠄",
+        "⠄⠄⢻⢹⣿⠸⣿⣿⣿⣿⣿⣷⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣼⣿⣿⣿⣿⡟⠄⠄",
+        "⠄⠄⠈⢸⣿⠄⠙⢿⣿⣿⣹⣿⣿⣿⣿⣟⡃⣽⣿⣿⡟⠁⣿⣿⢻⣿⣿⢿⠄⠄",
+        "⠄⠄⠄⠘⣿⡄⠄⠄⠙⢿⣿⣿⣾⣿⣷⣿⣿⣿⠟⠁⠄⠄⣿⣿⣾⣿⡟⣿⠄⠄",
+        "⠄⠄⠄⠄⢻⡇⠸⣆⠄⠄⠈⠻⣿⡿⠿⠛⠉⠄⠄⠄⠄⢸⣿⣇⣿⣿⢿⣿⠄⠄",
+    ];
 
-    if icons {
+    for line in zerotwo_art.iter() {
+        println!("{}", line);
+    }
+
+    let term_size = termion::terminal_size().unwrap();
+
+    (
+        term_size.0 as f32 / zerotwo_art[0].chars().count() as f32,
+        term_size.1 as f32 / zerotwo_art.len() as f32,
+    )
+}
+
+fn render(infos: Vec<((&str, &str), String)>, ratio: (f32, f32), text: bool) {
+    // let term_size_pixels = termion::terminal_size_pixels().unwrap();
+    let term_size = termion::terminal_size().unwrap();
+    let mut counter = (term_size.1 as f32 / 3.5) as u16;
+
+    let offset_x = (term_size.0 as f32 / ratio.0) as u16 + 4;
+    let offset_y = (term_size.1 as f32 / ratio.1) as u16 + 1;
+
+    if !text {
         for info in infos {
             println!(
                 "{}{}{}{} ->{} {}",
-                cursor::Goto((term_size.0 as f32 / 1.9) as u16, counter),
+                cursor::Goto(offset_x, counter),
                 style::Bold,
                 color::Fg(color::Magenta),
                 info.0 .0,
@@ -199,7 +246,7 @@ fn render(infos: Vec<((&str, &str), String)>, term_size: (u16, u16), icons: bool
 
     println!(
         "{}{}███{}███{}███{}███{}███{}███{}███{}███",
-        cursor::Goto((term_size.0 as f32 / 1.9) as u16, counter + 1),
+        cursor::Goto(offset_x, counter + 1),
         color::Fg(color::Red),
         color::Fg(color::Yellow),
         color::Fg(color::Green),
@@ -209,30 +256,7 @@ fn render(infos: Vec<((&str, &str), String)>, term_size: (u16, u16), icons: bool
         color::Fg(color::Black),
         color::Fg(color::White),
     );
-}
-
-fn render_ascii() {
-    println!("{}", cursor::Goto(1, 1));
-    let zerotwo_art: &[&str] = &[
-        "⣿⣿⣿⣿⣯⣿⣿⠄⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠈⣿⣿⣿⣿⣿⣿⣆⠄",
-        "⢻⣿⣿⣿⣾⣿⢿⣢⣞⣿⣿⣿⣿⣷⣶⣿⣯⣟⣿⢿⡇⢃⢻⣿⣿⣿⣿⣿⢿⡄",
-        "⠄⢿⣿⣯⣏⣿⣿⣿⡟⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣧⣾⢿⣮⣿⣿⣿⣿⣾⣷",
-        "⠄⣈⣽⢾⣿⣿⣿⣟⣄⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣝⣯⢿⣿⣿⣿⣿",
-        "⣿⠟⣫⢸⣿⢿⣿⣾⣿⢿⣿⣿⢻⣿⣿⣿⢿⣿⣿⣿⢸⣿⣼⣿⣿⣿⣿⣿⣿⣿",
-        "⡟⢸⣟⢸⣿⠸⣷⣝⢻⠘⣿⣿⢸⢿⣿⣿⠄⣿⣿⣿⡆⢿⣿⣼⣿⣿⣿⣿⢹⣿",
-        "⡇⣿⡿⣿⣿⢟⠛⠛⠿⡢⢻⣿⣾⣞⣿⡏⠖⢸⣿⢣⣷⡸⣇⣿⣿⣿⢼⡿⣿⣿",
-        "⣡⢿⡷⣿⣿⣾⣿⣷⣶⣮⣄⣿⣏⣸⣻⣃⠭⠄⠛⠙⠛⠳⠋⣿⣿⣇⠙⣿⢸⣿",
-        "⠫⣿⣧⣿⣿⣿⣿⣿⣿⣿⣿⣿⠻⣿⣾⣿⣿⣿⣿⣿⣿⣿⣷⣿⣿⣹⢷⣿⡼⠋",
-        "⠄⠸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣦⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⣿⣿⣿⠄⠄",
-        "⠄⠄⢻⢹⣿⠸⣿⣿⣿⣿⣿⣷⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣼⣿⣿⣿⣿⡟⠄⠄",
-        "⠄⠄⠈⢸⣿⠄⠙⢿⣿⣿⣹⣿⣿⣿⣿⣟⡃⣽⣿⣿⡟⠁⣿⣿⢻⣿⣿⢿⠄⠄",
-        "⠄⠄⠄⠘⣿⡄⠄⠄⠙⢿⣿⣿⣾⣿⣷⣿⣿⣿⠟⠁⠄⠄⣿⣿⣾⣿⡟⣿⠄⠄",
-        "⠄⠄⠄⠄⢻⡇⠸⣆⠄⠄⠈⠻⣿⡿⠿⠛⠉⠄⠄⠄⠄⢸⣿⣇⣿⣿⢿⣿⠄⠄",
-    ];
-
-    for line in zerotwo_art.iter() {
-        println!("{}", line);
-    }
+    println!("{}", cursor::Goto(1, offset_y));
 }
 
 fn main() {
@@ -261,8 +285,6 @@ fn main() {
     let wm = get_wm();
     let term = get_term();
 
-    let term_size = termion::terminal_size().unwrap();
-
     let mut infos: Vec<((&str, &str), String)> = Vec::new();
 
     infos.push((("\u{f17c}", "OS"), distro));
@@ -272,9 +294,11 @@ fn main() {
     infos.push((("\u{f878}", "WM"), wm));
     infos.push((("\u{f44f}", "Term"), term));
 
-    let mut icons: bool = true;
+    let mut text: bool = false;
 
-    render(infos, term_size, icons);
+    if help.text {
+        text = help.text;
+    }
 
     if let Some(name) = help.name.as_deref() {
         println!("Value for name: {}", name);
@@ -284,10 +308,13 @@ fn main() {
         println!("Value for config: {}", config_path.display());
     }
 
+    let ratio;
     // If -i/--image argument given, render image
     if let Some(image) = help.image.as_deref() {
-        render_image(image);
+        ratio = render_image(image);
     } else {
-        render_ascii();
+        ratio = render_ascii();
     }
+
+    render(infos, ratio, text);
 }
