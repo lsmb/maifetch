@@ -17,6 +17,30 @@ where
     Ok(io::BufReader::new(file).lines())
 }
 
+fn get_username() -> String {
+    let mut username: String = String::new();
+
+    match env::var("USER") {
+        Ok(val) => {
+            username = val.to_string();
+        }
+        Err(e) => println!("Error happened with: {}", e),
+    }
+    username
+}
+
+fn get_hostname() -> String {
+    let mut hostname = String::new();
+    if let Ok(lines) = read_lines("/proc/sys/kernel/hostname") {
+        for line in lines {
+            if let Ok(value) = line {
+                hostname = value.to_string();
+            }
+        }
+    }
+    hostname
+}
+
 fn get_distro() -> String {
     let mut os_release = String::new();
     if let Ok(lines) = read_lines("/etc/os-release") {
@@ -200,17 +224,40 @@ fn render_ascii() -> (f32, f32) {
     )
 }
 
-fn render(infos: Vec<((&str, &str), String)>, ratio: (f32, f32), text: bool) {
+fn render(
+    user: (String, String),
+    infos: Vec<((&str, &str), String)>,
+    ratio: (f32, f32),
+    text: bool,
+) {
     // let term_size_pixels = termion::terminal_size_pixels().unwrap();
     let term_size = termion::terminal_size().unwrap();
-    let mut counter = (term_size.1 as f32 / 3.5) as u16;
+    let mut counter = (term_size.1 as f32 / ratio.1 as f32 / 2.3) as u16;
 
     let offset_x = (term_size.0 as f32 / ratio.0) as u16 + 4;
     let offset_y = (term_size.1 as f32 / ratio.1) as u16 + 1;
 
+    print!(
+        "{}{}{}{}{}@{}{}",
+        cursor::Goto(offset_x, counter),
+        style::Bold,
+        color::Fg(color::Red),
+        user.0,
+        color::Fg(color::Cyan),
+        color::Fg(color::Red),
+        user.1
+    );
+    print!(
+        "{}{}{}",
+        cursor::Goto(offset_x, counter + 1),
+        color::Fg(color::Magenta),
+        "—".repeat(user.0.len() + user.1.len() + 1)
+    );
+    counter = counter + 2;
+
     if !text {
         for info in infos {
-            println!(
+            print!(
                 "{}{}{}{} ->{} {}",
                 cursor::Goto(offset_x, counter),
                 style::Bold,
@@ -230,9 +277,9 @@ fn render(infos: Vec<((&str, &str), String)>, ratio: (f32, f32), text: bool) {
         let padding = string_lengths.iter().max().unwrap();
         for info in infos {
             let pad = String::from_utf8(vec![b' '; padding - info.0 .1.chars().count()]).unwrap();
-            println!(
+            print!(
                 "{}{}{}{}{} ->{} {}",
-                cursor::Goto((term_size.0 as f32 / 1.9) as u16, counter),
+                cursor::Goto(offset_x, counter),
                 style::Bold,
                 color::Fg(color::Magenta),
                 info.0 .1,
@@ -244,7 +291,7 @@ fn render(infos: Vec<((&str, &str), String)>, ratio: (f32, f32), text: bool) {
         }
     }
 
-    println!(
+    print!(
         "{}{}███{}███{}███{}███{}███{}███{}███{}███",
         cursor::Goto(offset_x, counter + 1),
         color::Fg(color::Red),
@@ -256,7 +303,7 @@ fn render(infos: Vec<((&str, &str), String)>, ratio: (f32, f32), text: bool) {
         color::Fg(color::Black),
         color::Fg(color::White),
     );
-    println!("{}", cursor::Goto(1, offset_y));
+    print!("{}", cursor::Goto(1, offset_y + 1));
 }
 
 fn main() {
@@ -274,10 +321,12 @@ fn main() {
     }
 
     // NOTE: To debug environment variables
-    // for (key, value) in env::vars_os() {
-    //     println!("{:?}: {:?}", key, value);
-    // }
+    for (key, value) in env::vars_os() {
+        println!("{:?}: {:?}", key, value);
+    }
 
+    let username = get_username();
+    let hostname = get_hostname();
     let distro = get_distro();
     let kernel = get_kernel();
     let uptime = get_uptime();
@@ -286,6 +335,7 @@ fn main() {
     let term = get_term();
 
     let mut infos: Vec<((&str, &str), String)> = Vec::new();
+    let user = (username, hostname);
 
     infos.push((("\u{f17c}", "OS"), distro));
     infos.push((("\u{e266}", "Kernel"), kernel));
@@ -316,5 +366,5 @@ fn main() {
         ratio = render_ascii();
     }
 
-    render(infos, ratio, text);
+    render(user, infos, ratio, text);
 }
