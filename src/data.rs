@@ -5,20 +5,12 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::{Path, PathBuf};
 
+#[derive(Clone)]
 pub struct Data {
     pub name: String,
     pub icon: char,
-    pub data: String,
+    pub value: String,
 }
-
-// impl for Data {
-//     // fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//     //     write!(f, "{}{}{}")
-//     // }
-//     // fn name(&self) {
-//     //     self.name
-//     // }
-// }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 where
@@ -143,7 +135,7 @@ pub fn username() -> Data {
     Data {
         name: "User".to_string(),
         icon: '\u{f17c}',
-        data: get_username(),
+        value: get_username(),
     }
 }
 
@@ -151,7 +143,7 @@ pub fn hostname() -> Data {
     Data {
         name: "Hostname".to_string(),
         icon: '\u{f17c}',
-        data: get_hostname(),
+        value: get_hostname(),
     }
 }
 
@@ -159,7 +151,7 @@ pub fn distro() -> Data {
     Data {
         name: "OS".to_string(),
         icon: '\u{f17c}',
-        data: get_distro(),
+        value: get_distro(),
     }
 }
 
@@ -167,7 +159,7 @@ pub fn kernel() -> Data {
     Data {
         name: "Kernel".to_string(),
         icon: '\u{e266}',
-        data: get_kernel(),
+        value: get_kernel(),
     }
 }
 
@@ -175,7 +167,7 @@ pub fn uptime() -> Data {
     Data {
         name: "Uptime".to_string(),
         icon: '\u{f017}',
-        data: get_uptime(),
+        value: get_uptime(),
     }
 }
 
@@ -183,7 +175,7 @@ pub fn shell() -> Data {
     Data {
         name: "Shell".to_string(),
         icon: '\u{e795}',
-        data: get_shell(),
+        value: get_shell(),
     }
 }
 
@@ -191,7 +183,7 @@ pub fn wm() -> Data {
     Data {
         name: "WM".to_string(),
         icon: '\u{f878}',
-        data: get_wm(),
+        value: get_wm(),
     }
 }
 
@@ -199,6 +191,6 @@ pub fn term() -> Data {
     Data {
         name: "Term".to_string(),
         icon: '\u{f44f}',
-        data: get_term(),
+        value: get_term(),
     }
 }
